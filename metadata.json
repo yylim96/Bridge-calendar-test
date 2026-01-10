@@ -1,0 +1,8 @@
+{
+  "name": "Bridge - Shared Calendar",
+  "description": "A high-performance shared group calendar with seamless private-to-public event promotion and layered visualization.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
