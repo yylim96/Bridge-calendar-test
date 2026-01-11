@@ -146,7 +146,6 @@ const App: React.FC = () => {
               <SettingsIcon size={22} />
             </button>
           </div>
-          {/* Fix: Removed invalid lg:size prop from LogOut icon */}
           <button className="w-full flex items-center gap-3 lg:gap-4 px-5 lg:px-6 py-3.5 lg:py-4 text-red-400 hover:bg-red-50 rounded-[20px] lg:rounded-[22px] transition-all text-[10px] lg:text-[11px] font-black uppercase tracking-[0.2em]"><LogOut size={18} /> Exit</button>
         </div>
       </aside>
@@ -169,9 +168,7 @@ const App: React.FC = () => {
             {view === 'calendar' && (
               <div className="flex items-center gap-2 md:gap-5">
                 <div className="flex items-center border border-slate-100 rounded-[18px] md:rounded-[20px] p-1 bg-slate-50/50 shadow-sm">
-                  {/* Fix: Removed invalid md:size prop from ChevronLeft icon */}
                   <button onClick={() => changeDateRange(-1)} className="p-2 md:p-2.5 hover:bg-white hover:shadow-sm rounded-xl md:rounded-2xl transition-all"><ChevronLeft size={20}/></button>
-                  {/* Fix: Removed invalid md:size prop from ChevronRight icon */}
                   <button onClick={() => changeDateRange(1)} className="p-2 md:p-2.5 hover:bg-white hover:shadow-sm rounded-xl md:rounded-2xl transition-all"><ChevronRight size={20}/></button>
                 </div>
                 <div className="hidden sm:flex bg-slate-100/60 p-1 md:p-1.5 rounded-[18px] md:rounded-[22px]">
@@ -181,7 +178,6 @@ const App: React.FC = () => {
               </div>
             )}
           </div>
-          {/* Fix: Removed invalid md:size prop from Sparkles icon */}
           <button onClick={() => setIsAIActive(true)} className="flex items-center gap-3 md:gap-4 px-6 md:px-8 py-4 md:py-5 rounded-[24px] md:rounded-[28px] bg-indigo-600 text-white font-black shadow-2xl shadow-indigo-500/30 hover:shadow-indigo-500/50 hover:-translate-y-0.5 active:scale-95 transition-all">
             <Sparkles size={22} /> <span className="hidden sm:inline text-[10px] md:text-[11px] uppercase tracking-[0.2em]">Bridge AI</span>
           </button>
