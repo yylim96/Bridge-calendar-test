@@ -91,6 +91,12 @@ const App: React.FC = () => {
     setIsAvatarPickerOpen(false);
   };
 
+  const updateProfile = (data: Partial<UserProfile>) => {
+    const newMembers = [...members];
+    newMembers[currentUserIdx] = { ...activeUser, ...data };
+    setMembers(newMembers);
+  };
+
   const filteredEvents = useMemo(() => {
     return events.filter(e => {
       if (filter === 'shared') return e.is_shared;
@@ -140,7 +146,8 @@ const App: React.FC = () => {
               <SettingsIcon size={22} />
             </button>
           </div>
-          <button className="w-full flex items-center gap-3 lg:gap-4 px-5 lg:px-6 py-3.5 lg:py-4 text-red-400 hover:bg-red-50 rounded-[20px] lg:rounded-[22px] transition-all text-[10px] lg:text-[11px] font-black uppercase tracking-[0.2em]"><LogOut size={16} lg:size={18} /> Exit</button>
+          {/* Fix: Removed invalid lg:size prop from LogOut icon */}
+          <button className="w-full flex items-center gap-3 lg:gap-4 px-5 lg:px-6 py-3.5 lg:py-4 text-red-400 hover:bg-red-50 rounded-[20px] lg:rounded-[22px] transition-all text-[10px] lg:text-[11px] font-black uppercase tracking-[0.2em]"><LogOut size={18} /> Exit</button>
         </div>
       </aside>
 
@@ -162,8 +169,10 @@ const App: React.FC = () => {
             {view === 'calendar' && (
               <div className="flex items-center gap-2 md:gap-5">
                 <div className="flex items-center border border-slate-100 rounded-[18px] md:rounded-[20px] p-1 bg-slate-50/50 shadow-sm">
-                  <button onClick={() => changeDateRange(-1)} className="p-2 md:p-2.5 hover:bg-white hover:shadow-sm rounded-xl md:rounded-2xl transition-all"><ChevronLeft size={18} md:size={20}/></button>
-                  <button onClick={() => changeDateRange(1)} className="p-2 md:p-2.5 hover:bg-white hover:shadow-sm rounded-xl md:rounded-2xl transition-all"><ChevronRight size={18} md:size={20}/></button>
+                  {/* Fix: Removed invalid md:size prop from ChevronLeft icon */}
+                  <button onClick={() => changeDateRange(-1)} className="p-2 md:p-2.5 hover:bg-white hover:shadow-sm rounded-xl md:rounded-2xl transition-all"><ChevronLeft size={20}/></button>
+                  {/* Fix: Removed invalid md:size prop from ChevronRight icon */}
+                  <button onClick={() => changeDateRange(1)} className="p-2 md:p-2.5 hover:bg-white hover:shadow-sm rounded-xl md:rounded-2xl transition-all"><ChevronRight size={20}/></button>
                 </div>
                 <div className="hidden sm:flex bg-slate-100/60 p-1 md:p-1.5 rounded-[18px] md:rounded-[22px]">
                   <button onClick={() => setCalendarView('month')} className={`px-4 md:px-6 py-2 md:py-2.5 rounded-xl md:rounded-2xl text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] transition-all ${calendarView === 'month' ? 'bg-white shadow-xl text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}>Grid</button>
@@ -172,8 +181,9 @@ const App: React.FC = () => {
               </div>
             )}
           </div>
+          {/* Fix: Removed invalid md:size prop from Sparkles icon */}
           <button onClick={() => setIsAIActive(true)} className="flex items-center gap-3 md:gap-4 px-6 md:px-8 py-4 md:py-5 rounded-[24px] md:rounded-[28px] bg-indigo-600 text-white font-black shadow-2xl shadow-indigo-500/30 hover:shadow-indigo-500/50 hover:-translate-y-0.5 active:scale-95 transition-all">
-            <Sparkles size={18} md:size={22} /> <span className="hidden sm:inline text-[10px] md:text-[11px] uppercase tracking-[0.2em]">Bridge AI</span>
+            <Sparkles size={22} /> <span className="hidden sm:inline text-[10px] md:text-[11px] uppercase tracking-[0.2em]">Bridge AI</span>
           </button>
         </header>
 
@@ -189,7 +199,7 @@ const App: React.FC = () => {
             />
           )}
           {view === 'members' && <MemberManager members={members} currentUser={activeUser} onUpdateMembers={setMembers} />}
-          {view === 'settings' && <SettingsView user={activeUser} group={MOCK_GROUP} />}
+          {view === 'settings' && <SettingsView user={activeUser} onUpdate={updateProfile} openAvatarPicker={() => setIsAvatarPickerOpen(true)} />}
         </div>
 
         {isAvatarPickerOpen && <AvatarPicker onClose={() => setIsAvatarPickerOpen(false)} onSelect={updateAvatar} current={activeUser.avatar_illustration} />}
@@ -262,97 +272,98 @@ const MonthYearPicker = ({ onClose, onSelect, current }: { onClose: () => void, 
   );
 };
 
-const SettingsView: React.FC<{user: UserProfile, group: any}> = ({ user, group }) => (
-  <div className="flex-1 overflow-y-auto no-scrollbar bg-[#F8FAFC] p-5 md:p-16 h-full touch-pan-y min-h-0">
-    <div className="max-w-4xl mx-auto space-y-10 md:space-y-12">
-      <header className="mb-8 md:mb-12 px-1">
-        <h3 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tighter mb-2 md:mb-3">Preferences</h3>
-        <p className="text-base md:text-lg text-slate-500 font-medium">Sync settings across the group profile.</p>
-      </header>
+const SettingsView: React.FC<{user: UserProfile, onUpdate: (data: Partial<UserProfile>) => void, openAvatarPicker: () => void}> = ({ user, onUpdate, openAvatarPicker }) => {
+  const [localName, setLocalName] = useState(user.full_name);
 
-      <section className="space-y-4 md:space-y-6">
-        <h3 className="text-[10px] md:text-[11px] font-black text-slate-400 uppercase tracking-[0.3em] ml-2">Identity & Presence</h3>
-        <div className="bg-white rounded-[32px] md:rounded-[40px] p-8 md:p-10 border border-slate-100 shadow-sm space-y-8 md:space-y-10">
-          <div className="flex flex-col sm:flex-row items-center gap-6 md:gap-10">
-            <div className="relative group cursor-pointer">
-              <img src={user.avatar_url} className="w-20 h-20 md:w-24 md:h-24 rounded-[28px] md:rounded-[32px] object-cover shadow-2xl border-4 border-white ring-1 ring-slate-100" />
-              <div className="absolute inset-0 bg-black/10 rounded-[28px] md:rounded-[32px] opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                <Camera className="text-white" size={24} />
+  const handleNameChange = (newName: string) => {
+    setLocalName(newName);
+    onUpdate({ full_name: newName });
+  };
+
+  return (
+    <div className="flex-1 overflow-y-auto no-scrollbar bg-[#F8FAFC] p-5 md:p-16 h-full touch-pan-y min-h-0">
+      <div className="max-w-xl mx-auto space-y-10 md:space-y-12 pb-24">
+        <header className="mb-8 md:mb-12 px-1 text-center md:text-left">
+          <h3 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tighter mb-2">Preferences</h3>
+          <p className="text-sm md:text-base text-slate-500 font-medium">Sync settings across the group profile.</p>
+        </header>
+
+        <section className="space-y-4 md:space-y-6">
+          <h3 className="text-[10px] md:text-[11px] font-black text-slate-400 uppercase tracking-[0.3em] ml-2">IDENTITY & PRESENCE</h3>
+          <div className="bg-[#EBEDF2]/40 rounded-[40px] p-8 md:p-12 border border-slate-100 shadow-sm space-y-10">
+            <div className="flex flex-col items-center gap-8">
+              <div 
+                className="relative group cursor-pointer"
+                onClick={openAvatarPicker}
+              >
+                <div className="w-24 h-24 md:w-32 md:h-32 rounded-[36px] md:rounded-[48px] overflow-hidden bg-white shadow-2xl border-4 border-white ring-1 ring-slate-100">
+                  <img src={user.avatar_url} className="w-full h-full object-cover" />
+                </div>
+                <div className="absolute inset-0 bg-indigo-600/10 rounded-[36px] md:rounded-[48px] opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <div className="bg-white/90 p-3 rounded-2xl shadow-xl">
+                    <Camera className="text-indigo-600" size={24} />
+                  </div>
+                </div>
               </div>
-            </div>
-            <div className="flex-1 w-full space-y-3 md:space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-[9px] font-black text-slate-300 uppercase tracking-widest ml-1">Display Name</label>
-                <input defaultValue={user.full_name} className="text-xl md:text-2xl font-black bg-slate-50 border border-slate-100 rounded-[18px] md:rounded-[20px] px-5 py-3.5 md:px-6 md:py-4 w-full focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all" />
+              
+              <div className="w-full space-y-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">DISPLAY NAME</label>
+                  <input 
+                    value={localName} 
+                    onChange={(e) => handleNameChange(e.target.value)}
+                    className="text-xl md:text-2xl font-black bg-white border border-slate-100 rounded-[24px] px-6 py-4 md:px-8 md:py-6 w-full shadow-sm focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-200 outline-none transition-all placeholder:text-slate-300" 
+                    placeholder="Enter Name"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">ACTIVE LOCATION</label>
+                  <div className="bg-white p-5 md:p-6 rounded-[24px] border border-slate-100 flex items-center justify-center shadow-sm">
+                    <span className="font-black text-slate-900 uppercase tracking-widest text-lg md:text-xl">
+                      {user.base_locations[0]?.city || 'SINGAPORE'}
+                    </span>
+                  </div>
+                </div>
+
+                <button className="w-full bg-indigo-600 text-white py-5 md:py-6 rounded-[28px] font-black text-xs md:text-sm uppercase tracking-[0.2em] shadow-2xl shadow-indigo-200 hover:bg-indigo-700 hover:-translate-y-0.5 transition-all active:scale-95 flex items-center justify-center gap-3">
+                  UPDATE LOCATION
+                </button>
               </div>
             </div>
           </div>
-          <div className="pt-6 md:pt-8 border-t border-slate-50 flex flex-col sm:flex-row sm:items-end justify-between gap-5 md:gap-6">
-            <div className="space-y-2">
-              <label className="block text-[10px] font-black text-slate-300 uppercase tracking-widest ml-1">Active Location</label>
-              <div className="flex items-center gap-4 bg-slate-50 p-4 md:p-5 rounded-2xl md:rounded-3xl border border-slate-100 min-w-[200px] md:min-w-[240px]">
-                <Globe size={18} md:size={20} className="text-indigo-500" />
-                <span className="font-black text-slate-800 uppercase tracking-tight text-base md:text-lg">{user.base_locations[0]?.city || 'Singapore'}</span>
-              </div>
-            </div>
-            <button className="bg-indigo-600 text-white px-6 md:px-8 py-4 md:py-5 rounded-xl md:rounded-2xl font-black text-[10px] md:text-[11px] uppercase tracking-[0.2em] shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95">Update Location</button>
+        </section>
+
+        <section className="space-y-4 md:space-y-6">
+          <h3 className="text-[10px] md:text-[11px] font-black text-slate-400 uppercase tracking-[0.3em] ml-2">PROVIDER STACKS</h3>
+          <div className="grid grid-cols-1 gap-4">
+            <SyncCard icon={<Zap size={20} className="text-blue-500"/>} label="Google" status="Live" color="bg-blue-50 text-blue-600" />
+            <SyncCard icon={<Layers size={20} className="text-indigo-600"/>} label="Native" status="On" color="bg-indigo-50 text-indigo-600" />
           </div>
-        </div>
-      </section>
-
-      <section className="space-y-4 md:space-y-6">
-        <h3 className="text-[10px] md:text-[11px] font-black text-slate-400 uppercase tracking-[0.3em] ml-2">Provider Stacks</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-          <SyncCard icon={<Zap size={20} className="text-blue-500"/>} label="Google" status="Live" color="bg-blue-50 text-blue-600" />
-          <SyncCard icon={<Zap size={20} className="text-orange-500"/>} label="iCloud" status="Off" color="bg-orange-50 text-orange-600" />
-          <SyncCard icon={<Zap size={20} className="text-indigo-600"/>} label="Native" status="On" color="bg-indigo-50 text-indigo-600" />
-          <SyncCard icon={<Shield size={20} className="text-emerald-500"/>} label="Safety" status="High" color="bg-emerald-50 text-emerald-600" />
-        </div>
-      </section>
-
-      <section className="space-y-4 md:space-y-6 pb-20 md:pb-32">
-        <h3 className="text-[10px] md:text-[11px] font-black text-slate-400 uppercase tracking-[0.3em] ml-2">System Switches</h3>
-        <div className="bg-white rounded-[32px] md:rounded-[40px] p-2 md:p-4 border border-slate-100 shadow-sm divide-y divide-slate-50">
-          <ToggleItem icon={<Bell size={18}/>} label="Push Notifications" active />
-          <ToggleItem icon={<Smartphone size={18}/>} label="Proximity Sync" active={false} />
-          <ToggleItem icon={<Layers size={18}/>} label="Event Layers" active />
-          <ToggleItem icon={<Sparkles size={18}/>} label="AI Insights" active />
-        </div>
-      </section>
+        </section>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const SyncCard = ({ icon, label, status, color }: any) => (
-  <div className="bg-white p-6 md:p-8 rounded-[30px] md:rounded-[36px] border border-slate-100 shadow-sm flex items-center justify-between hover:shadow-xl hover:shadow-indigo-500/5 transition-all group">
+  <div className="bg-white p-6 md:p-8 rounded-[30px] border border-slate-100 shadow-sm flex items-center justify-between hover:shadow-xl hover:shadow-indigo-500/5 transition-all group">
     <div className="flex items-center gap-4 md:gap-5">
-      <div className="w-12 h-12 md:w-14 md:h-14 bg-slate-50 rounded-2xl flex items-center justify-center group-hover:bg-white transition-colors">{icon}</div>
-      <p className="text-base md:text-lg font-black text-slate-800 tracking-tight">{label}</p>
+      <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center group-hover:bg-white transition-colors">{icon}</div>
+      <p className="text-base font-black text-slate-800 tracking-tight">{label}</p>
     </div>
-    <button className={`text-[9px] md:text-[10px] font-black uppercase tracking-widest px-4 md:px-5 py-2 md:py-2.5 rounded-xl ${color} hover:brightness-95 transition-all shadow-sm`}>{status}</button>
-  </div>
-);
-
-const ToggleItem = ({ icon, label, active }: any) => (
-  <div className="flex items-center justify-between p-4 md:p-6 hover:bg-slate-50/50 transition-colors rounded-[24px]">
-    <div className="flex items-center gap-4 md:gap-6">
-      <div className="w-10 h-10 md:w-12 md:h-12 bg-white border border-slate-100 rounded-xl md:rounded-2xl flex items-center justify-center text-slate-400 shadow-sm">{icon}</div>
-      <span className="text-sm md:text-base font-black text-slate-700 tracking-tight">{label}</span>
-    </div>
-    <div className={`w-12 h-7 md:w-14 md:h-8 rounded-full transition-all relative cursor-pointer shadow-inner ${active ? 'bg-indigo-600' : 'bg-slate-200'}`}>
-      <div className={`absolute top-1 w-5 h-5 md:w-6 md:h-6 bg-white rounded-full transition-all shadow-xl ${active ? 'right-1' : 'left-1'}`} />
-    </div>
+    <button className={`text-[9px] font-black uppercase tracking-widest px-4 py-2 rounded-xl ${color} shadow-sm`}>{status}</button>
   </div>
 );
 
 const AvatarPicker = ({ onClose, onSelect, current }: any) => (
   <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-300" onClick={onClose}>
-    <div className="bg-white rounded-[40px] md:rounded-[56px] p-8 md:p-12 w-full max-w-md shadow-2xl relative animate-in zoom-in-95 duration-300" onClick={e => e.stopPropagation()}>
-      <button onClick={onClose} className="absolute top-8 right-8 md:top-12 md:right-12 p-2 text-slate-300 hover:text-slate-600 transition-colors">
+    <div className="bg-white rounded-[48px] p-8 md:p-12 w-full max-w-md shadow-2xl relative animate-in zoom-in-95 duration-300" onClick={e => e.stopPropagation()}>
+      <button onClick={onClose} className="absolute top-8 right-8 p-2 text-slate-300 hover:text-slate-600 transition-colors">
         <X size={28} />
       </button>
-      <div className="text-center mb-8 md:mb-10">
-        <h3 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tighter mb-2">Bridge Avatar</h3>
+      <div className="text-center mb-10">
+        <h3 className="text-2xl font-black text-slate-900 tracking-tighter mb-2">Bridge Avatar</h3>
         <p className="text-sm text-slate-500 font-medium">Select your group persona.</p>
       </div>
       
@@ -361,18 +372,18 @@ const AvatarPicker = ({ onClose, onSelect, current }: any) => (
           <button 
             key={key} 
             onClick={() => onSelect(key)}
-            className={`relative aspect-square rounded-[24px] md:rounded-[32px] overflow-hidden border-4 transition-all hover:scale-105 active:scale-95 ${current === key ? 'border-indigo-600 shadow-2xl' : 'border-slate-50 hover:border-indigo-100'}`}
+            className={`relative aspect-square rounded-[32px] overflow-hidden border-4 transition-all hover:scale-105 active:scale-95 ${current === key ? 'border-indigo-600 shadow-2xl' : 'border-slate-50 hover:border-indigo-100'}`}
           >
             <img src={url} className="w-full h-full object-cover bg-slate-50" />
             {current === key && (
-              <div className="absolute top-2 right-2 md:top-3 md:right-3 bg-indigo-600 text-white p-1.5 rounded-full shadow-lg">
+              <div className="absolute top-2 right-2 bg-indigo-600 text-white p-1.5 rounded-full shadow-lg">
                 <Check size={12} />
               </div>
             )}
           </button>
         ))}
       </div>
-      <button onClick={onClose} className="w-full mt-10 md:mt-12 py-5 md:py-6 bg-indigo-600 text-white font-black uppercase tracking-[0.2em] text-[10px] md:text-xs rounded-[24px] md:rounded-[28px] shadow-2xl shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95">Confirm</button>
+      <button onClick={onClose} className="w-full mt-10 md:mt-12 py-6 bg-indigo-600 text-white font-black uppercase tracking-[0.2em] text-[10px] md:text-xs rounded-[28px] shadow-2xl shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95">Confirm</button>
     </div>
   </div>
 );

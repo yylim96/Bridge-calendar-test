@@ -37,7 +37,7 @@ const CalendarGrid: React.FC<CalendarGridProps> = ({
     });
   }, [currentDate]);
 
-  // Month days calculation - includes previous and next month fillers
+  // Month days calculation - strictly current month + completion of its weeks
   const calendarDays = useMemo(() => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
@@ -45,12 +45,11 @@ const CalendarGrid: React.FC<CalendarGridProps> = ({
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     
     const days = [];
-    const prevMonthLastDay = new Date(year, month, 0).getDate();
     
-    // Previous month filler
-    for (let i = firstDayOfMonth - 1; i >= 0; i--) {
+    // Previous month filler to complete the first row
+    for (let i = 0; i < firstDayOfMonth; i++) {
       days.push({ 
-        date: new Date(year, month, 1 - (i + 1)), // Correctly calculate previous month dates
+        date: new Date(year, month, 1 - (firstDayOfMonth - i)), 
         isCurrentMonth: false 
       });
     }
@@ -63,9 +62,10 @@ const CalendarGrid: React.FC<CalendarGridProps> = ({
       });
     }
     
-    // Next month filler - fill up to 42 cells (6 rows)
-    const remainingCells = 42 - days.length;
-    for (let i = 1; i <= remainingCells; i++) {
+    // Next month filler to complete the last row
+    const totalDaysSoFar = days.length;
+    const remainingInLastWeek = (7 - (totalDaysSoFar % 7)) % 7;
+    for (let i = 1; i <= remainingInLastWeek; i++) {
       days.push({ 
         date: new Date(year, month + 1, i), 
         isCurrentMonth: false 
@@ -184,12 +184,12 @@ const CalendarGrid: React.FC<CalendarGridProps> = ({
               return (
                 <div key={i} className={`p-3 border-r border-b border-slate-50 flex flex-col gap-1 hover:bg-slate-50/30 transition-colors ${!day.isCurrentMonth ? 'bg-slate-50/20' : ''}`}>
                   <div className="flex justify-between items-center mb-1">
-                    <span className={`text-sm font-black p-1 rounded-lg ${isToday ? 'bg-indigo-600 text-white px-2' : day.isCurrentMonth ? 'text-slate-800' : 'text-slate-200'}`}>
+                    <span className={`text-sm font-black p-1 rounded-lg ${isToday ? 'bg-indigo-600 text-white px-2' : day.isCurrentMonth ? 'text-slate-800' : 'text-slate-300'}`}>
                       {day.date.getDate()}
                     </span>
                   </div>
                   <div className="flex-1 overflow-y-auto no-scrollbar space-y-1 touch-pan-y">
-                    {dayEvents.map(e => (
+                    {day.isCurrentMonth && dayEvents.map(e => (
                       <EventCard key={e.id} event={e} onToggleShare={onToggleShare} isCompact members={members} />
                     ))}
                   </div>
@@ -199,7 +199,7 @@ const CalendarGrid: React.FC<CalendarGridProps> = ({
           </div>
         </div>
 
-        {/* Mobile Month View: Compact Grid + Large Independent List */}
+        {/* Mobile Month View: Compact Rolling Grid + Independent Scroller */}
         <div className="md:hidden flex-1 flex flex-col min-h-0 h-full overflow-hidden">
           <div className="bg-white border-b border-slate-100 p-3 shrink-0">
             <div className="grid grid-cols-7 mb-1">
@@ -220,7 +220,7 @@ const CalendarGrid: React.FC<CalendarGridProps> = ({
                     onClick={() => setSelectedDate(day.date)}
                     className={`aspect-square flex flex-col items-center justify-center rounded-xl relative transition-all ${
                       isSelected ? 'bg-indigo-600 text-white shadow-md shadow-indigo-100' : ''
-                    } ${!day.isCurrentMonth ? 'text-slate-200' : 'text-slate-700'}`}
+                    } ${!day.isCurrentMonth ? 'text-slate-200 opacity-60' : 'text-slate-700'}`}
                   >
                     <span className={`text-xs font-bold ${isToday && !isSelected && day.isCurrentMonth ? 'text-indigo-600' : ''}`}>
                       {day.date.getDate()}
