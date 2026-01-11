@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { CalendarEvent, UserProfile, CalendarViewType } from '../types';
 import EventCard from './EventCard';
@@ -18,255 +17,165 @@ const CalendarGrid: React.FC<CalendarGridProps> = ({
   onToggleShare, 
   members, 
   currentDate, 
-  onDateChange,
   viewType 
 }) => {
   const [selectedDate, setSelectedDate] = useState(currentDate);
-  const now = new Date(2026, 0, 10);
+  const today = useMemo(() => new Date(2026, 0, 10), []);
 
-  // Week days calculation
+  // Pre-index events by date string for O(1) lookup during grid render
+  const eventMap = useMemo(() => {
+    const map: Record<string, CalendarEvent[]> = {};
+    events.forEach(e => {
+      const key = new Date(e.start_time).toDateString();
+      if (!map[key]) map[key] = [];
+      map[key].push(e);
+    });
+    return map;
+  }, [events]);
+
   const weekDays = useMemo(() => {
-    const startOfWeek = new Date(currentDate);
-    const day = currentDate.getDay();
-    startOfWeek.setDate(currentDate.getDate() - day);
-    
-    return Array.from({ length: 7 }).map((_, i) => {
-      const d = new Date(startOfWeek);
-      d.setDate(startOfWeek.getDate() + i);
+    const start = new Date(currentDate);
+    start.setDate(currentDate.getDate() - currentDate.getDay());
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
       return d;
     });
   }, [currentDate]);
 
-  // Month days calculation - strictly current month + completion of its weeks
-  const calendarDays = useMemo(() => {
+  const monthDays = useMemo(() => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
-    const firstDayOfMonth = new Date(year, month, 1).getDay();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    
+    const first = new Date(year, month, 1);
+    const firstDayIdx = first.getDay();
     const days = [];
     
-    // Previous month filler to complete the first row
-    for (let i = 0; i < firstDayOfMonth; i++) {
-      days.push({ 
-        date: new Date(year, month, 1 - (firstDayOfMonth - i)), 
-        isCurrentMonth: false 
-      });
+    // Padding from prev month
+    for (let i = 0; i < firstDayIdx; i++) {
+      days.push({ date: new Date(year, month, 1 - (firstDayIdx - i)), isCurrent: false });
     }
-    
-    // Current month days
-    for (let i = 1; i <= daysInMonth; i++) {
-      days.push({ 
-        date: new Date(year, month, i), 
-        isCurrentMonth: true 
-      });
+    // Current month
+    const totalDays = new Date(year, month + 1, 0).getDate();
+    for (let i = 1; i <= totalDays; i++) {
+      days.push({ date: new Date(year, month, i), isCurrent: true });
     }
-    
-    // Next month filler to complete the last row
-    const totalDaysSoFar = days.length;
-    const remainingInLastWeek = (7 - (totalDaysSoFar % 7)) % 7;
-    for (let i = 1; i <= remainingInLastWeek; i++) {
-      days.push({ 
-        date: new Date(year, month + 1, i), 
-        isCurrentMonth: false 
-      });
+    // Padding to complete grid
+    const remaining = (7 - (days.length % 7)) % 7;
+    for (let i = 1; i <= remaining; i++) {
+      days.push({ date: new Date(year, month + 1, i), isCurrent: false });
     }
-    
     return days;
   }, [currentDate]);
 
-  const getEventsForDate = (date: Date) => {
-    return events.filter(e => {
-      const d = new Date(e.start_time);
-      return d.getDate() === date.getDate() && 
-             d.getMonth() === date.getMonth() && 
-             d.getFullYear() === date.getFullYear();
-    });
-  };
+  const DayCell = ({ date, isCurrent, isCompact }: { date: Date, isCurrent: boolean, isCompact?: boolean }) => {
+    const key = date.toDateString();
+    const dayEvents = eventMap[key] || [];
+    const isToday = key === today.toDateString();
+    const isSelected = key === selectedDate.toDateString();
 
-  const WeekView = () => (
-    <div className="flex-1 flex flex-col min-h-0 bg-[#F8FAFC] md:bg-transparent md:p-8 h-full overflow-hidden">
-      <div className="hidden md:grid grid-cols-7 gap-4 h-full">
-        {weekDays.map((day, i) => {
-          const dayEvents = getEventsForDate(day);
-          const isToday = day.getDate() === now.getDate() && day.getMonth() === now.getMonth();
-          return (
-            <div key={i} className="flex flex-col h-full bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden hover:shadow-lg transition-all group">
-              <div className={`p-4 border-b border-slate-50 text-center ${isToday ? 'bg-indigo-600 text-white' : 'bg-slate-50/50'}`}>
-                <p className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-1">{day.toLocaleDateString('en-US', { weekday: 'short' })}</p>
-                <p className="text-xl font-black">{day.getDate()}</p>
-              </div>
-              <div className="flex-1 p-3 overflow-y-auto no-scrollbar space-y-2 touch-pan-y min-h-0">
-                {dayEvents.length > 0 ? dayEvents.map(e => (
-                  <EventCard 
-                    key={e.id} 
-                    event={e} 
-                    onToggleShare={onToggleShare} 
-                    isCompact 
-                    members={members}
-                  />
-                )) : (
-                  <div className="h-full flex items-center justify-center opacity-10 grayscale">
-                    <Clock size={20} />
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      
-      {/* Mobile Weekly: Scroller with independent list */}
-      <div className="md:hidden flex-1 flex flex-col h-full overflow-hidden">
-        <div className="flex gap-3 px-6 py-4 overflow-x-auto no-scrollbar bg-white border-b border-slate-100 shrink-0">
-          {weekDays.map((day, i) => {
-            const isSelected = day.getDate() === selectedDate.getDate() && day.getMonth() === selectedDate.getMonth();
-            const isToday = day.getDate() === now.getDate() && day.getMonth() === now.getMonth();
-            return (
-              <button 
-                key={i}
-                onClick={() => setSelectedDate(day)}
-                className={`flex flex-col items-center min-w-[58px] py-4 rounded-3xl transition-all ${
-                  isSelected 
-                    ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-200' 
-                    : isToday 
-                      ? 'bg-indigo-50 text-indigo-600' 
-                      : 'text-slate-400 hover:bg-slate-50'
-                }`}
-              >
-                <span className="text-[10px] font-black mb-1 uppercase tracking-widest">{day.toLocaleDateString('en-US', { weekday: 'short' })}</span>
-                <span className="text-xl font-black">{day.getDate()}</span>
-              </button>
-            );
-          })}
-        </div>
-        <div className="flex-1 overflow-y-auto no-scrollbar px-5 py-6 space-y-4 bg-slate-50/50 touch-pan-y overscroll-contain">
-          <div className="flex items-center justify-between px-1 mb-2">
-            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</h4>
-            <div className="bg-white px-3 py-1 rounded-full text-[9px] font-black text-indigo-500 border border-slate-100 uppercase tracking-widest">
-              {getEventsForDate(selectedDate).length} {getEventsForDate(selectedDate).length === 1 ? 'EVENT' : 'EVENTS'}
-            </div>
-          </div>
-          <div className="space-y-4 pb-12">
-            {getEventsForDate(selectedDate).length > 0 ? (
-              getEventsForDate(selectedDate).map(e => (
-                <EventCard key={e.id} event={e} onToggleShare={onToggleShare} members={members} />
-              ))
-            ) : (
-              <div className="py-20 flex flex-col items-center justify-center text-slate-300 gap-4">
-                <div className="w-16 h-16 bg-white rounded-3xl flex items-center justify-center shadow-sm border border-slate-100">
-                  <Clock size={28} />
-                </div>
-                <p className="text-sm font-black uppercase tracking-widest">Quiet Day</p>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+    if (isCompact) {
+      return (
+        <button 
+          onClick={() => setSelectedDate(date)}
+          className={`aspect-square flex flex-col items-center justify-center rounded-xl relative transition-all ${
+            isSelected ? 'bg-indigo-600 text-white shadow-lg' : isCurrent ? 'text-slate-700 hover:bg-slate-50' : 'text-slate-200'
+          }`}
+        >
+          <span className={`text-xs font-black ${isToday && !isSelected ? 'text-indigo-600' : ''}`}>{date.getDate()}</span>
+          {dayEvents.length > 0 && !isSelected && <div className="absolute bottom-1 w-1 h-1 rounded-full bg-indigo-400" />}
+        </button>
+      );
+    }
 
-  const MonthView = () => {
-    const selectedDateEvents = getEventsForDate(selectedDate);
-    
     return (
-      <div className="flex-1 flex flex-col min-h-0 bg-[#F8FAFC] md:bg-transparent md:p-8 h-full overflow-hidden">
-        <div className="hidden md:flex flex-col h-full border border-slate-100 bg-white rounded-[40px] overflow-hidden shadow-2xl">
-          <div className="grid grid-cols-7 border-b border-slate-50 bg-slate-50/50">
-            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
-              <div key={d} className="py-5 text-center text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{d}</div>
-            ))}
-          </div>
-          <div className="grid grid-cols-7 flex-1 min-h-0">
-            {calendarDays.map((day, i) => {
-              const dayEvents = getEventsForDate(day.date);
-              const isToday = day.date.getDate() === now.getDate() && day.date.getMonth() === now.getMonth() && day.date.getFullYear() === now.getFullYear();
-              return (
-                <div key={i} className={`p-3 border-r border-b border-slate-50 flex flex-col gap-1 hover:bg-slate-50/30 transition-colors ${!day.isCurrentMonth ? 'bg-slate-50/20' : ''}`}>
-                  <div className="flex justify-between items-center mb-1">
-                    <span className={`text-sm font-black p-1 rounded-lg ${isToday ? 'bg-indigo-600 text-white px-2' : day.isCurrentMonth ? 'text-slate-800' : 'text-slate-300'}`}>
-                      {day.date.getDate()}
-                    </span>
-                  </div>
-                  <div className="flex-1 overflow-y-auto no-scrollbar space-y-1 touch-pan-y">
-                    {day.isCurrentMonth && dayEvents.map(e => (
-                      <EventCard key={e.id} event={e} onToggleShare={onToggleShare} isCompact members={members} />
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+      <div className={`p-2 border-r border-b border-slate-50 flex flex-col min-h-[120px] ${!isCurrent ? 'bg-slate-50/20' : 'bg-white'}`}>
+        <div className="flex justify-between items-start mb-2">
+          <span className={`text-[11px] font-black w-6 h-6 flex items-center justify-center rounded-lg ${isToday ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}>
+            {date.getDate()}
+          </span>
         </div>
-
-        {/* Mobile Month View: Compact Rolling Grid + Independent Scroller */}
-        <div className="md:hidden flex-1 flex flex-col min-h-0 h-full overflow-hidden">
-          <div className="bg-white border-b border-slate-100 p-3 shrink-0">
-            <div className="grid grid-cols-7 mb-1">
-              {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(d => (
-                <div key={d} className="text-center text-[8px] font-black text-slate-300 uppercase tracking-widest py-1">{d}</div>
-              ))}
-            </div>
-            <div className="grid grid-cols-7 gap-y-0.5">
-              {calendarDays.map((day, i) => {
-                const dayEvents = getEventsForDate(day.date);
-                const isSelected = day.date.toDateString() === selectedDate.toDateString();
-                const isToday = day.date.toDateString() === now.toDateString();
-                const hasEvents = dayEvents.length > 0;
-                
-                return (
-                  <button 
-                    key={i} 
-                    onClick={() => setSelectedDate(day.date)}
-                    className={`aspect-square flex flex-col items-center justify-center rounded-xl relative transition-all ${
-                      isSelected ? 'bg-indigo-600 text-white shadow-md shadow-indigo-100' : ''
-                    } ${!day.isCurrentMonth ? 'text-slate-200 opacity-60' : 'text-slate-700'}`}
-                  >
-                    <span className={`text-xs font-bold ${isToday && !isSelected && day.isCurrentMonth ? 'text-indigo-600' : ''}`}>
-                      {day.date.getDate()}
-                    </span>
-                    {hasEvents && !isSelected && day.isCurrentMonth && (
-                      <div className="absolute bottom-1 flex gap-0.5">
-                        <div className="w-0.5 h-0.5 rounded-full bg-indigo-400" />
-                      </div>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-          
-          <div className="flex-1 overflow-y-auto no-scrollbar bg-slate-50/50 px-5 py-6 touch-pan-y overscroll-contain">
-            <div className="flex items-center justify-between px-1 mb-4">
-              <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{selectedDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}</h4>
-              <div className="bg-white px-3 py-1 rounded-full text-[9px] font-black text-indigo-500 border border-slate-100 uppercase tracking-widest">
-                {selectedDateEvents.length} {selectedDateEvents.length === 1 ? 'EVENT' : 'EVENTS'}
-              </div>
-            </div>
-            
-            <div className="space-y-4 pb-24">
-              {selectedDateEvents.length > 0 ? (
-                selectedDateEvents.map(e => (
-                  <EventCard key={e.id} event={e} onToggleShare={onToggleShare} members={members} />
-                ))
-              ) : (
-                <div className="py-16 flex flex-col items-center justify-center text-slate-300 gap-4">
-                  <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm border border-slate-100">
-                    <CalendarIcon size={20} />
-                  </div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.3em]">No Agenda Items</p>
-                </div>
-              )}
-            </div>
-          </div>
+        <div className="flex-1 space-y-1 overflow-y-auto no-scrollbar">
+          {dayEvents.map(e => (
+            <EventCard key={e.id} event={e} onToggleShare={onToggleShare} isCompact members={members} />
+          ))}
         </div>
       </div>
     );
-  }
+  };
 
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden h-full">
-      {viewType === 'week' ? <WeekView /> : <MonthView />}
+      {viewType === 'week' ? (
+        <div className="flex-1 flex flex-col md:p-8 overflow-hidden">
+          <div className="hidden md:grid grid-cols-7 gap-4 h-full">
+            {weekDays.map(day => (
+              <div key={day.toISOString()} className="bg-white rounded-[32px] border border-slate-100 flex flex-col overflow-hidden shadow-sm">
+                <div className="p-4 bg-slate-50/50 border-b border-slate-50 text-center">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{day.toLocaleDateString('en-US', { weekday: 'short' })}</p>
+                  <p className="text-lg font-black">{day.getDate()}</p>
+                </div>
+                <div className="flex-1 p-3 space-y-2 overflow-y-auto no-scrollbar">
+                  {(eventMap[day.toDateString()] || []).map(e => (
+                    <EventCard key={e.id} event={e} onToggleShare={onToggleShare} isCompact members={members} />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+          {/* Mobile Weekly Scroller */}
+          <div className="md:hidden flex flex-col h-full">
+            <div className="flex gap-2 px-4 py-4 overflow-x-auto no-scrollbar bg-white border-b border-slate-100">
+              {weekDays.map(day => (
+                <button 
+                  key={day.toISOString()}
+                  onClick={() => setSelectedDate(day)}
+                  className={`flex flex-col items-center min-w-[54px] py-3 rounded-2xl transition-all ${
+                    day.toDateString() === selectedDate.toDateString() ? 'bg-indigo-600 text-white shadow-xl' : 'text-slate-400'
+                  }`}
+                >
+                  <span className="text-[9px] font-black uppercase mb-1">{day.toLocaleDateString('en-US', { weekday: 'short' })}</span>
+                  <span className="text-lg font-black">{day.getDate()}</span>
+                </button>
+              ))}
+            </div>
+            <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-slate-50/50">
+              {(eventMap[selectedDate.toDateString()] || []).map(e => (
+                <EventCard key={e.id} event={e} onToggleShare={onToggleShare} members={members} />
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="flex-1 flex flex-col md:p-8 overflow-hidden">
+          <div className="hidden md:flex flex-col h-full bg-white rounded-[40px] border border-slate-100 shadow-2xl overflow-hidden">
+            <div className="grid grid-cols-7 border-b border-slate-50 bg-slate-50/30">
+              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
+                <div key={d} className="py-4 text-center text-[9px] font-black text-slate-300 uppercase tracking-widest">{d}</div>
+              ))}
+            </div>
+            <div className="grid grid-cols-7 flex-1 overflow-hidden">
+              {monthDays.map((day, i) => (
+                <DayCell key={i} date={day.date} isCurrent={day.isCurrent} />
+              ))}
+            </div>
+          </div>
+          {/* Mobile Month View */}
+          <div className="md:hidden flex flex-col h-full">
+            <div className="bg-white p-3 border-b border-slate-100">
+              <div className="grid grid-cols-7 gap-y-1">
+                {monthDays.map((day, i) => (
+                  <DayCell key={i} date={day.date} isCurrent={day.isCurrent} isCompact />
+                ))}
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-slate-50/50">
+              {(eventMap[selectedDate.toDateString()] || []).map(e => (
+                <EventCard key={e.id} event={e} onToggleShare={onToggleShare} members={members} />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
